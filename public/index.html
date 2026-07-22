@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Secure file drop</title></head>
+<body>
+<p>Placeholder page — real UI arrives in Task 4.</p>
+<script type="module">
+  import { computeVerifier } from './drop-crypto.js';
+  const VERIFIER_SALT = '__VERIFIER_SALT__';
+  const VERIFIER_HASH = '__VERIFIER_HASH__';
+  console.log(VERIFIER_SALT, VERIFIER_HASH, typeof computeVerifier);
+</script>
+</body>
+</html>

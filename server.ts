@@ -1,0 +1,95 @@
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { bytesToB64, computeVerifier } from './public/drop-crypto.js';
+
+const MAX_BYTES = 2 * 1024 * 1024;
+
+export interface ServerOptions {
+  pass: string;
+  port?: number;
+  uploadsDir?: string;
+}
+
+export async function createServer(opts: ServerOptions) {
+  const uploadsDir = opts.uploadsDir ?? 'uploads';
+  mkdirSync(uploadsDir, { recursive: true });
+
+  const verifierSalt = bytesToB64(crypto.getRandomValues(new Uint8Array(16)));
+  const verifierHash = await computeVerifier(opts.pass, verifierSalt);
+  const template = await Bun.file(new URL('./public/index.html', import.meta.url)).text();
+  const page = template
+    .replace('__VERIFIER_SALT__', verifierSalt)
+    .replace('__VERIFIER_HASH__', verifierHash);
+
+  return Bun.serve({
+    hostname: '127.0.0.1',
+    port: opts.port ?? 8787,
+    // Backstop only — the friendly 413 below fires first via Content-Length.
+    maxRequestBodySize: MAX_BYTES * 2,
+    async fetch(req) {
+      const path = new URL(req.url).pathname;
+
+      if (req.method === 'GET' && path === '/') {
+        return new Response(page, {
+          headers: { 'content-type': 'text/html; charset=utf-8' },
+        });
+      }
+
+      if (req.method === 'GET' && path === '/drop-crypto.js') {
+        return new Response(Bun.file(new URL('./public/drop-crypto.js', import.meta.url)));
+      }
+
+      if (req.method === 'POST' && path === '/upload') {
+        const length = Number(req.headers.get('content-length') ?? '0');
+        if (length > MAX_BYTES) {
+          // Drain the request body to prevent connection issues
+          try {
+            await req.text();
+          } catch {
+            // Ignore body read errors
+          }
+          return json(413, { error: 'That file is too large (limit 2 MB).' });
+        }
+        let payload: { salt?: unknown; iv?: unknown; data?: unknown };
+        try {
+          const text = await req.text();
+          payload = JSON.parse(text);
+        } catch {
+          return json(400, { error: 'Could not read the upload. Please try again.' });
+        }
+        if (
+          typeof payload.salt !== 'string' ||
+          typeof payload.iv !== 'string' ||
+          typeof payload.data !== 'string'
+        ) {
+          return json(400, { error: 'Could not read the upload. Please try again.' });
+        }
+        const stamp = new Date().toISOString().replaceAll(':', '-');
+        const dest = join(uploadsDir, `upload-${stamp}.enc`);
+        const body = JSON.stringify(payload);
+        await Bun.write(dest, body);
+        console.log(`[${new Date().toISOString()}] saved ${dest} (${body.length} bytes)`);
+        return json(200, { ok: true });
+      }
+
+      return json(404, { error: 'Not found' });
+    },
+  });
+}
+
+function json(status: number, body: object) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  });
+}
+
+if (import.meta.main) {
+  const pass = process.env.PASS;
+  if (!pass) {
+    console.error('PASS is required, e.g.: PASS="plum-otter-band-echo" bun server.ts');
+    process.exit(1);
+  }
+  const server = await createServer({ pass });
+  console.log(`secret-drop listening on http://${server.hostname}:${server.port}`);
+}
