@@ -25,6 +25,7 @@ export async function createServer(opts: ServerOptions) {
   const page = template
     .replace('__VERIFIER_SALT__', verifierSalt)
     .replace('__VERIFIER_HASH__', verifierHash);
+  const cryptoModule = await Bun.file(new URL('./public/drop-crypto.js', import.meta.url)).text();
 
   return Bun.serve({
     hostname: '127.0.0.1',
@@ -42,8 +43,8 @@ export async function createServer(opts: ServerOptions) {
       }
 
       if (req.method === 'GET' && path === '/drop-crypto.js') {
-        return new Response(Bun.file(new URL('./public/drop-crypto.js', import.meta.url)), {
-          headers: { 'cache-control': 'no-store' },
+        return new Response(cryptoModule, {
+          headers: { 'content-type': 'text/javascript;charset=utf-8', 'cache-control': 'no-store' },
         });
       }
 
