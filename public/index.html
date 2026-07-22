@@ -53,6 +53,8 @@
     <p class="hint">Usually a small file ending in <b>.json</b> — the one Saadiq asked you for.</p>
     <button id="send">Send securely</button>
     <p id="error" class="error"></p>
+    <noscript><p class="error">This page needs JavaScript to lock your file
+      before sending. Please enable JavaScript and refresh.</p></noscript>
   </div>
   <div id="done-view" class="success hidden">
     <div class="check">✅</div>
@@ -62,6 +64,24 @@
     <button id="again">Send another file</button>
   </div>
 </main>
+<script>
+  // Watchdog, deliberately old-school syntax: if the module script below never
+  // finishes (blocked by a filter, unsupported syntax, partial load), show an
+  // error instead of leaving a dead Send button.
+  // Counted from 'load', when every subresource has already arrived, so the
+  // only wait is for the module below to parse and run.
+  var MODULE_RUN_GRACE_MS = 1500;
+  window.addEventListener('load', function () {
+    setTimeout(function () {
+      if (!window.__dropReady) {
+        document.getElementById('error').textContent =
+          'The page could not finish loading, so sending is disabled. ' +
+          'Please refresh — if this happens again, try a different browser ' +
+          'or network, and let Saadiq know.';
+      }
+    }, MODULE_RUN_GRACE_MS);
+  });
+</script>
 <script type="module">
   // The crypto module is inlined by server.ts rather than imported, so the page
   // is a single response: a second .js request (with "crypto" in its name) is
@@ -125,6 +145,10 @@
   function showError(msg) {
     errorEl.textContent = msg;
   }
+
+  // Last line on purpose: only reached if the whole module parsed and ran,
+  // which is what tells the watchdog above not to fire.
+  window.__dropReady = true;
 </script>
 </body>
 </html>

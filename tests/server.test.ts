@@ -40,6 +40,12 @@ describe('GET /', () => {
     expect(html).not.toContain('__DROP_CRYPTO_INLINE__');
   });
 
+  test('page surfaces an error instead of a dead button when scripts never run', async () => {
+    const html = await (await fetch(`${base}/`)).text();
+    expect(html).toContain('__dropReady');
+    expect(html).toContain('could not finish loading');
+    expect(html).toContain('<noscript>');
+  });
 });
 
 describe('POST /upload', () => {
