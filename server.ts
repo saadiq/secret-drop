@@ -75,11 +75,11 @@ export async function createServer(opts: ServerOptions) {
         ) {
           return json(400, { error: 'Could not read the upload. Please try again.' });
         }
-        const stamp = new Date().toISOString().replaceAll(':', '-');
-        const dest = join(uploadsDir, `upload-${stamp}.enc`);
+        const now = new Date().toISOString();
+        const dest = join(uploadsDir, `upload-${now.replaceAll(':', '-')}.enc`);
         const body = JSON.stringify(payload);
         await Bun.write(dest, body);
-        console.log(`[${new Date().toISOString()}] saved ${dest} (${body.length} bytes)`);
+        console.log(`[${now}] saved ${dest} (${body.length} bytes)`);
         return json(200, { ok: true });
       }
 
