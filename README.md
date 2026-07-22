@@ -67,14 +67,41 @@ texting that to you separately right now. Any trouble, just call me."
 
 Text: "Code for the secure page: <four-word-code>"
 
+## Why encrypt in the browser when the page is already HTTPS?
+
+Because the HTTPS here is hop-by-hop, not end-to-end. With a Cloudflare
+tunnel, the sender's TLS session terminates at Cloudflare's edge:
+Cloudflare decrypts the request there, then re-encrypts it down the
+tunnel to your machine. Without browser-side encryption, the file would
+exist in plaintext inside Cloudflare's infrastructure, however briefly.
+(Free-tier Cloudflare has no passthrough mode, and the alternatives —
+exposing your home IP with your own cert, or paid Spectrum/keyless SSL —
+are a bad trade for a one-day exchange.)
+
+TLS protects the pipe segments; the passphrase protects the payload.
+Encrypting before upload also buys three things TLS never would:
+
+- **The sender's own middleboxes see nothing.** On a corporate machine,
+  a TLS-inspecting proxy with an installed root CA sees "inside" HTTPS.
+  It gets ciphertext too.
+- **Encrypted at rest.** Uploads land on your disk already encrypted —
+  a stray backup, a stolen laptop, or a file lingering in `uploads/`
+  exposes nothing without the code. The server process never touches
+  plaintext at all.
+- **Typos and tampering fail loudly.** The verifier embedded in the
+  page lets the sender's browser catch a wrong code before anything
+  uploads, and the AES-GCM auth tag makes a corrupted or tampered file
+  fail at decrypt time instead of silently producing garbage.
+
+The one tradeoff: that embedded verifier would let someone who saved
+the page mount an offline guessing attack on the code. That's why
+`start.sh` generates ~60-bit 4-word passphrases — don't replace the
+generated code with a weak one.
+
 ## Notes
 
-- Wrong code is caught on the sender's device before anything uploads.
 - Every upload is timestamped in `./uploads/` — nothing is overwritten;
   the sender can retry freely while the server is up.
-- The page's embedded verifier would allow offline guessing of the
-  code, which is why `start.sh` generates ~60-bit passphrases. Don't
-  replace the generated code with a weak one.
 - Passphrase generation reads `/usr/share/dict/words` (present on macOS
   and most Linuxes). If yours lacks it, supply your own:
   `PASS="four-random-dictionary-words" ./start.sh`.
