@@ -48,12 +48,6 @@ export async function createServer(opts: ServerOptions) {
         });
       }
 
-      if (req.method === 'GET' && path === '/drop-crypto.js') {
-        return new Response(cryptoModule, {
-          headers: { 'content-type': 'text/javascript;charset=utf-8', 'cache-control': 'no-store' },
-        });
-      }
-
       if (req.method === 'POST' && path === '/upload') {
         const length = Number(req.headers.get('content-length') ?? '0');
         if (length > MAX_UPLOAD_BYTES) {

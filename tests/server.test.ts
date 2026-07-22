@@ -40,11 +40,6 @@ describe('GET /', () => {
     expect(html).not.toContain('__DROP_CRYPTO_INLINE__');
   });
 
-  test('serves the crypto module', async () => {
-    const res = await fetch(`${base}/drop-crypto.js`);
-    expect(res.status).toBe(200);
-    expect(await res.text()).toContain('encryptPayload');
-  });
 });
 
 describe('POST /upload', () => {
@@ -84,6 +79,8 @@ describe('other routes', () => {
   test('404s', async () => {
     expect((await fetch(`${base}/nope`)).status).toBe(404);
     expect((await fetch(`${base}/upload`)).status).toBe(404);
+    // The crypto module is inlined into the page; no standalone route remains.
+    expect((await fetch(`${base}/drop-crypto.js`)).status).toBe(404);
   });
 });
 
