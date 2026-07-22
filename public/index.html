@@ -1,13 +1,128 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><title>Secure file drop</title></head>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Send a file to Saadiq — securely</title>
+<style>
+  body {
+    font-family: -apple-system, system-ui, sans-serif;
+    margin: 0; min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    background: #f2f4f8; color: #1a1a2e;
+  }
+  main {
+    background: #fff; border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+    padding: 32px; max-width: 420px; width: calc(100% - 48px);
+    margin: 24px 0;
+  }
+  h1 { font-size: 1.3rem; margin: 0 0 8px; }
+  p { color: #555; line-height: 1.5; margin: 8px 0; }
+  label { display: block; font-weight: 600; margin: 20px 0 6px; }
+  input {
+    width: 100%; box-sizing: border-box; padding: 12px;
+    border: 1px solid #ccc; border-radius: 10px; font-size: 1rem;
+    background: #fff; color: inherit;
+  }
+  button {
+    margin-top: 24px; width: 100%; padding: 14px;
+    border: 0; border-radius: 10px;
+    background: #0a7cff; color: #fff;
+    font-size: 1.05rem; font-weight: 600; cursor: pointer;
+  }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .hint { font-size: 0.85rem; color: #888; margin: 6px 0 0; }
+  .error { color: #c0392b; margin-top: 12px; min-height: 1.2em; }
+  .success { text-align: center; }
+  .success .check { font-size: 3rem; }
+  .hidden { display: none; }
+</style>
+</head>
 <body>
-<p>Placeholder page — real UI arrives in Task 4.</p>
+<main>
+  <div id="form-view">
+    <h1>Send your file to Saadiq</h1>
+    <p>This page locks your file on your own device before it travels —
+       only Saadiq can unlock it.</p>
+    <label for="code">Code from Saadiq's text message</label>
+    <input id="code" type="password" autocomplete="off" autocapitalize="none"
+           placeholder="the-four-word-code">
+    <label for="file">Your file</label>
+    <input id="file" type="file">
+    <p class="hint">Usually a small file ending in <b>.json</b> — the one Saadiq asked you for.</p>
+    <button id="send">Send securely</button>
+    <p id="error" class="error"></p>
+  </div>
+  <div id="done-view" class="success hidden">
+    <div class="check">✅</div>
+    <h1>Received — all set!</h1>
+    <p>Your file was locked and delivered safely. You can close this page.
+       Feel free to send again if Saadiq asks for a redo.</p>
+    <button id="again">Send another file</button>
+  </div>
+</main>
 <script type="module">
-  import { computeVerifier } from './drop-crypto.js';
+  import { computeVerifier, encryptPayload } from './drop-crypto.js';
+
   const VERIFIER_SALT = '__VERIFIER_SALT__';
   const VERIFIER_HASH = '__VERIFIER_HASH__';
-  console.log(VERIFIER_SALT, VERIFIER_HASH, typeof computeVerifier);
+  const MAX_FILE_BYTES = 1_500_000;
+
+  const codeEl = document.getElementById('code');
+  const fileEl = document.getElementById('file');
+  const sendEl = document.getElementById('send');
+  const errorEl = document.getElementById('error');
+  const formView = document.getElementById('form-view');
+  const doneView = document.getElementById('done-view');
+
+  document.getElementById('again').addEventListener('click', () => {
+    doneView.classList.add('hidden');
+    formView.classList.remove('hidden');
+  });
+
+  sendEl.addEventListener('click', async () => {
+    errorEl.textContent = '';
+    const code = codeEl.value.trim().toLowerCase();
+    const file = fileEl.files[0];
+    if (!code) return showError('Please enter the code from the text message.');
+    if (!file) return showError('Please choose the file to send.');
+    if (file.size > MAX_FILE_BYTES) {
+      return showError('That file looks too large for a key file — please double-check, or contact Saadiq.');
+    }
+
+    sendEl.disabled = true;
+    sendEl.textContent = 'Locking…';
+    try {
+      const verifier = await computeVerifier(code, VERIFIER_SALT);
+      if (verifier !== VERIFIER_HASH) {
+        return showError("That code doesn't match — please check the text message and try again.");
+      }
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const payload = await encryptPayload(code, bytes);
+      sendEl.textContent = 'Sending…';
+      const res = await fetch('/upload', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        return showError(body.error ?? 'Something went wrong — please try again.');
+      }
+      formView.classList.add('hidden');
+      doneView.classList.remove('hidden');
+    } catch {
+      showError('Something went wrong — please check your connection and try again.');
+    } finally {
+      sendEl.disabled = false;
+      sendEl.textContent = 'Send securely';
+    }
+  });
+
+  function showError(msg) {
+    errorEl.textContent = msg;
+  }
 </script>
 </body>
 </html>
