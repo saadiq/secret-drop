@@ -9,6 +9,14 @@ if [[ ! -f cloudflared-config.yml ]]; then
   exit 1
 fi
 
+# A second start would overwrite the pidfiles and orphan the running instance.
+for pidfile in .run/server.pid .run/tunnel.pid; do
+  if [[ -f "$pidfile" ]] && kill -0 "$(cat "$pidfile")" 2>/dev/null; then
+    echo "Already running ($(basename "$pidfile" .pid), pid $(cat "$pidfile")) — run ./teardown.sh first." >&2
+    exit 1
+  fi
+done
+
 if [[ -z "${PASS:-}" ]]; then
   PASS="$(bun -e '
     const words = (await Bun.file("/usr/share/dict/words").text())
