@@ -2,7 +2,22 @@
 // WebCrypto only — identical behavior in browser and Bun.
 export const PBKDF2_ITERATIONS = 600_000;
 
+// Server-enforced cap on the encrypted upload body.
+export const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
+// Client-side cap on the raw file: after base64 (~4/3) plus JSON wrapping,
+// the payload must stay under MAX_UPLOAD_BYTES.
+export const MAX_RAW_FILE_BYTES = 1_500_000;
+
 const subtle = globalThis.crypto.subtle;
+
+// Applied at every trust boundary: browser page, server, decrypt CLI.
+export function normalizePassphrase(raw) {
+  return raw.trim().toLowerCase();
+}
+
+export function randomSalt() {
+  return crypto.getRandomValues(new Uint8Array(16));
+}
 
 export function bytesToB64(bytes) {
   let bin = '';
@@ -39,7 +54,7 @@ async function deriveKey(passphrase, salt, usages) {
 }
 
 export async function encryptPayload(passphrase, plaintextBytes) {
-  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const salt = randomSalt();
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const key = await deriveKey(passphrase, salt, ['encrypt']);
   const ciphertext = new Uint8Array(

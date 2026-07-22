@@ -63,11 +63,15 @@
   </div>
 </main>
 <script type="module">
-  import { computeVerifier, encryptPayload } from './drop-crypto.js';
+  import {
+    MAX_RAW_FILE_BYTES,
+    computeVerifier,
+    encryptPayload,
+    normalizePassphrase,
+  } from './drop-crypto.js';
 
   const VERIFIER_SALT = '__VERIFIER_SALT__';
   const VERIFIER_HASH = '__VERIFIER_HASH__';
-  const MAX_FILE_BYTES = 1_500_000;
 
   const codeEl = document.getElementById('code');
   const fileEl = document.getElementById('file');
@@ -83,11 +87,11 @@
 
   sendEl.addEventListener('click', async () => {
     errorEl.textContent = '';
-    const code = codeEl.value.trim().toLowerCase();
+    const code = normalizePassphrase(codeEl.value);
     const file = fileEl.files[0];
     if (!code) return showError('Please enter the code from the text message.');
     if (!file) return showError('Please choose the file to send.');
-    if (file.size > MAX_FILE_BYTES) {
+    if (file.size > MAX_RAW_FILE_BYTES) {
       return showError('That file looks too large for a key file — please double-check, or contact Saadiq.');
     }
 

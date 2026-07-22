@@ -1,8 +1,12 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { bytesToB64, computeVerifier } from './public/drop-crypto.js';
-
-const MAX_BYTES = 2 * 1024 * 1024;
+import {
+  MAX_UPLOAD_BYTES,
+  bytesToB64,
+  computeVerifier,
+  normalizePassphrase,
+  randomSalt,
+} from './public/drop-crypto.js';
 
 export interface ServerOptions {
   pass: string;
@@ -11,11 +15,11 @@ export interface ServerOptions {
 }
 
 export async function createServer(opts: ServerOptions) {
-  const pass = opts.pass.trim().toLowerCase();
+  const pass = normalizePassphrase(opts.pass);
   const uploadsDir = opts.uploadsDir ?? 'uploads';
   mkdirSync(uploadsDir, { recursive: true });
 
-  const verifierSalt = bytesToB64(crypto.getRandomValues(new Uint8Array(16)));
+  const verifierSalt = bytesToB64(randomSalt());
   const verifierHash = await computeVerifier(pass, verifierSalt);
   const template = await Bun.file(new URL('./public/index.html', import.meta.url)).text();
   const page = template
@@ -27,7 +31,7 @@ export async function createServer(opts: ServerOptions) {
     port: opts.port ?? 8787,
     // Content-Length check returns 413 first; body is drained before responding to preserve keep-alive.
     // This is the hard backstop (2× cap) if Content-Length is absent or invalid.
-    maxRequestBodySize: MAX_BYTES * 2,
+    maxRequestBodySize: MAX_UPLOAD_BYTES * 2,
     async fetch(req) {
       const path = new URL(req.url).pathname;
 
@@ -45,7 +49,7 @@ export async function createServer(opts: ServerOptions) {
 
       if (req.method === 'POST' && path === '/upload') {
         const length = Number(req.headers.get('content-length') ?? '0');
-        if (length > MAX_BYTES) {
+        if (length > MAX_UPLOAD_BYTES) {
           // Drain the request body to prevent connection issues
           try {
             await req.text();

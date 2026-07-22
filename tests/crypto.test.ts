@@ -4,6 +4,8 @@ import {
   decryptPayload,
   computeVerifier,
   bytesToB64,
+  b64ToBytes,
+  randomSalt,
 } from '../public/drop-crypto.js';
 
 const PASS = 'correct-horse-battery-staple';
@@ -26,9 +28,9 @@ describe('crypto round-trip', () => {
 
   test('tampered ciphertext rejects', async () => {
     const payload = await encryptPayload(PASS, secret);
-    const bytes = Uint8Array.from(atob(payload.data), (c) => c.charCodeAt(0));
+    const bytes = b64ToBytes(payload.data);
     bytes[0] ^= 0xff;
-    payload.data = btoa(String.fromCharCode(...bytes));
+    payload.data = bytesToB64(bytes);
     await expect(decryptPayload(PASS, payload)).rejects.toThrow();
   });
 
@@ -42,7 +44,7 @@ describe('crypto round-trip', () => {
 
 describe('verifier', () => {
   test('matches for same passphrase, differs for wrong one', async () => {
-    const salt = bytesToB64(crypto.getRandomValues(new Uint8Array(16)));
+    const salt = bytesToB64(randomSalt());
     const expected = await computeVerifier(PASS, salt);
     expect(await computeVerifier(PASS, salt)).toBe(expected);
     expect(await computeVerifier('typo-pass', salt)).not.toBe(expected);

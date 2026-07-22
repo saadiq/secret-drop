@@ -1,4 +1,4 @@
-import { decryptPayload } from './public/drop-crypto.js';
+import { decryptPayload, normalizePassphrase } from './public/drop-crypto.js';
 
 const path = process.argv[2];
 if (!path) {
@@ -11,7 +11,7 @@ if (!raw) {
   console.error('No passphrase given.');
   process.exit(1);
 }
-const passphrase = raw.trim().toLowerCase();
+const passphrase = normalizePassphrase(raw);
 
 let payload;
 try {
