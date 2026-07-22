@@ -1,0 +1,7 @@
+{
+  "name": "secret-drop",
+  "private": true,
+  "scripts": {
+    "test": "bun test"
+  }
+}
