@@ -42,7 +42,7 @@ echo "  Link (email it):   https://$PUBLIC_HOSTNAME"
 echo "  Code (text it):    $PASS"
 echo "================================================="
 echo "  Uploads land in ./uploads/ — decrypt with:"
-echo "  PASS=\"$PASS\" bun decrypt.ts uploads/<file>.enc"
+echo "  bun decrypt.ts uploads/<file>.enc (it will ask for the code)"
 echo "  Ctrl-C stops everything."
 echo ""
 

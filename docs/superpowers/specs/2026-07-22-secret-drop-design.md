@@ -58,13 +58,13 @@ re-run once. Setup detects and reports this.
 - **Encryption:** AES-256-GCM, random 12-byte IV. Upload payload (JSON):
   `{ salt, iv, data }`, all base64. GCM auth tag makes tampering/corruption and
   wrong-passphrase decryption fail loudly.
-- **Passphrase verifier:** at startup the server derives
-  PBKDF2(passphrase, fixed server salt) and embeds its SHA-256 hash + salt in
-  the page. The browser recomputes it to give immediate "that code doesn't
-  match" feedback *before* upload. Accepted trade-off: the verifier is visible
-  in page source, enabling offline brute-force — mitigated by a generated
-  ~50-bit (4-word) passphrase at 600k iterations, far beyond feasible for the
-  exposure window.
+- **Passphrase verifier:** at startup the server normalizes the passphrase
+  (trim + lowercase) and derives PBKDF2(passphrase, fixed server salt), then
+  embeds its SHA-256 hash + salt in the page. The browser recomputes it to
+  give immediate "that code doesn't match" feedback *before* upload. Accepted
+  trade-off: the verifier is visible in page source, enabling offline
+  brute-force — mitigated by a generated ~50-bit (4-word) passphrase at 600k
+  iterations, far beyond feasible for the exposure window.
 - **Channel separation:** link goes in email; passphrase goes by SMS/Signal.
 
 ## Server behavior

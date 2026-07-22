@@ -19,7 +19,7 @@ only public path.
 1. **Email her the link**, **text her the code** (separate channels — never
    both in one message).
 2. She opens the link, enters the code, picks the file, clicks Send.
-3. Decrypt: `PASS="<code>" bun decrypt.ts uploads/<newest>.enc`
+3. Decrypt: `bun decrypt.ts uploads/<newest>.enc` (it will ask for the code).
 4. Confirm the `.json` is what you expect, then Ctrl-C (or `./teardown.sh`).
 5. Done with the domain? `./teardown.sh --full` and delete the `drop`
    CNAME in the Cloudflare dashboard.

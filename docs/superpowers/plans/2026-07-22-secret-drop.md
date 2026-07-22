@@ -16,7 +16,7 @@
 - Max 300 lines per file (error); max 100 lines per function.
 - PBKDF2-SHA256, **600,000 iterations**; AES-256-GCM; 16-byte random salt per upload; 12-byte random IV.
 - Upload payload JSON shape: `{ "salt": string, "iv": string, "data": string }` — all base64.
-- **Passphrases are always lowercase words joined by hyphens** (e.g. `plum-otter-band-echo`). The page lowercases input; generation and decryption must respect this invariant.
+- **Passphrases are always lowercase words joined by hyphens** (e.g. `plum-otter-band-echo`). The page lowercases input; generation and decryption must respect this invariant. The server normalizes (trim + lowercase) before deriving the verifier.
 - Server binds `127.0.0.1` only, port `8787`. Upload size cap 2 MB (friendly 413).
 - Public hostname: `drop.saadiq.xyz`. Tunnel name: `secret-drop`. Zone: `saadiq.xyz`.
 - Page copy addresses the client warmly and never uses jargon (no "PBKDF2", no "payload").
