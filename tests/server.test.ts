@@ -27,24 +27,35 @@ function postJson(body: string) {
 }
 
 describe('GET /', () => {
-  test('serves page with verifier tokens replaced', async () => {
-    const html = await (await fetch(`${base}/`)).text();
+  // The page is built once at startup; fetch it once and assert on the string.
+  let html: string;
+  beforeAll(async () => {
+    html = await (await fetch(`${base}/`)).text();
+  });
+
+  test('serves page with verifier tokens replaced', () => {
     expect(html).not.toContain('__VERIFIER_SALT__');
     expect(html).not.toContain('__VERIFIER_HASH__');
   });
 
-  test('serves page with the crypto module inlined, no second script request', async () => {
-    const html = await (await fetch(`${base}/`)).text();
+  test('serves page with the crypto module inlined, no second script request', () => {
     expect(html).toContain('function normalizePassphrase');
     expect(html).not.toContain("from './drop-crypto.js'");
     expect(html).not.toContain('__DROP_CRYPTO_INLINE__');
   });
 
-  test('page surfaces an error instead of a dead button when scripts never run', async () => {
-    const html = await (await fetch(`${base}/`)).text();
+  test('page surfaces an error instead of a dead button when scripts never run', () => {
     expect(html).toContain('__dropReady');
     expect(html).toContain('could not finish loading');
     expect(html).toContain('<noscript>');
+  });
+
+  test('assembled inline module is syntactically valid', () => {
+    // The substring checks above can't catch a syntax error introduced by the
+    // template substitution; scan() throws on one.
+    const module = html.match(/<script type="module">([\s\S]*?)<\/script>/)![1];
+    expect(module).toContain('function normalizePassphrase');
+    new Bun.Transpiler({ loader: 'js' }).scan(module);
   });
 });
 
