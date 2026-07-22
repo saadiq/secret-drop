@@ -31,7 +31,13 @@ describe('GET /', () => {
     const html = await (await fetch(`${base}/`)).text();
     expect(html).not.toContain('__VERIFIER_SALT__');
     expect(html).not.toContain('__VERIFIER_HASH__');
-    expect(html).toContain('drop-crypto.js');
+  });
+
+  test('serves page with the crypto module inlined, no second script request', async () => {
+    const html = await (await fetch(`${base}/`)).text();
+    expect(html).toContain('function normalizePassphrase');
+    expect(html).not.toContain("from './drop-crypto.js'");
+    expect(html).not.toContain('__DROP_CRYPTO_INLINE__');
   });
 
   test('serves the crypto module', async () => {

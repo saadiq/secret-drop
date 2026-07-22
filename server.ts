@@ -21,11 +21,17 @@ export async function createServer(opts: ServerOptions) {
 
   const verifierSalt = bytesToB64(randomSalt());
   const verifierHash = await computeVerifier(pass, verifierSalt);
-  const template = await Bun.file(new URL('./public/index.html', import.meta.url)).text();
+  const [template, cryptoModule] = await Promise.all([
+    Bun.file(new URL('./public/index.html', import.meta.url)).text(),
+    Bun.file(new URL('./public/drop-crypto.js', import.meta.url)).text(),
+  ]);
   const page = template
+    // Function replacer: the module source must land verbatim ($ is special in
+    // string replacements). Its `export` keywords are legal as-is in an inline
+    // module script, so no rewriting is needed.
+    .replace('// __DROP_CRYPTO_INLINE__', () => cryptoModule)
     .replace('__VERIFIER_SALT__', verifierSalt)
     .replace('__VERIFIER_HASH__', verifierHash);
-  const cryptoModule = await Bun.file(new URL('./public/drop-crypto.js', import.meta.url)).text();
 
   return Bun.serve({
     hostname: '127.0.0.1',

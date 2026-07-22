@@ -63,12 +63,10 @@
   </div>
 </main>
 <script type="module">
-  import {
-    MAX_RAW_FILE_BYTES,
-    computeVerifier,
-    encryptPayload,
-    normalizePassphrase,
-  } from './drop-crypto.js';
+  // The crypto module is inlined by server.ts rather than imported, so the page
+  // is a single response: a second .js request (with "crypto" in its name) is
+  // exactly what corporate proxies and ad-block lists tend to drop.
+  // __DROP_CRYPTO_INLINE__
 
   const VERIFIER_SALT = '__VERIFIER_SALT__';
   const VERIFIER_HASH = '__VERIFIER_HASH__';
