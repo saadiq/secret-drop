@@ -33,12 +33,14 @@ export async function createServer(opts: ServerOptions) {
 
       if (req.method === 'GET' && path === '/') {
         return new Response(page, {
-          headers: { 'content-type': 'text/html; charset=utf-8' },
+          headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' },
         });
       }
 
       if (req.method === 'GET' && path === '/drop-crypto.js') {
-        return new Response(Bun.file(new URL('./public/drop-crypto.js', import.meta.url)));
+        return new Response(Bun.file(new URL('./public/drop-crypto.js', import.meta.url)), {
+          headers: { 'cache-control': 'no-store' },
+        });
       }
 
       if (req.method === 'POST' && path === '/upload') {
