@@ -13,7 +13,13 @@ if (!raw) {
 }
 const passphrase = raw.trim().toLowerCase();
 
-const payload = JSON.parse(await Bun.file(path).text());
+let payload;
+try {
+  payload = JSON.parse(await Bun.file(path).text());
+} catch {
+  console.error(`Could not read ${path} — is it the right file?`);
+  process.exit(1);
+}
 try {
   const plaintext = await decryptPayload(passphrase, payload);
   const outPath = path.replace(/\.enc$/, '') + '.json';

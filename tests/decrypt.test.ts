@@ -51,4 +51,20 @@ describe('decrypt CLI', () => {
     expect(await proc.exited).toBe(1);
     expect(await new Response(proc.stderr).text()).toContain('Usage');
   });
+
+  test('fails cleanly when the file does not exist', async () => {
+    const { code, err } = await runDecrypt('/nonexistent/upload-z.enc', PASS);
+    expect(code).toBe(1);
+    expect(err).toContain('Could not read');
+    expect(err).not.toContain('ENOENT');
+  });
+
+  test('fails cleanly when the file is not JSON', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'dec-test-'));
+    const encPath = join(dir, 'upload-bad.enc');
+    await Bun.write(encPath, 'not valid json at all');
+    const { code, err } = await runDecrypt(encPath, PASS);
+    expect(code).toBe(1);
+    expect(err).toContain('Could not read');
+  });
 });
