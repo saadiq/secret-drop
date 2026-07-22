@@ -27,6 +27,15 @@ cloudflared tunnel --config cloudflared-config.yml run &
 echo $! > .run/tunnel.pid
 
 sleep 3
+
+for pidfile in .run/server.pid .run/tunnel.pid; do
+  if ! kill -0 "$(cat "$pidfile")" 2>/dev/null; then
+    echo "ERROR: $(basename "$pidfile" .pid) failed to start — check output above." >&2
+    ./teardown.sh
+    exit 1
+  fi
+done
+
 echo ""
 echo "================================================="
 echo "  Link (email it):   https://$PUBLIC_HOSTNAME"
