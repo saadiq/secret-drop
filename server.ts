@@ -24,7 +24,8 @@ export async function createServer(opts: ServerOptions) {
   return Bun.serve({
     hostname: '127.0.0.1',
     port: opts.port ?? 8787,
-    // Backstop only — the friendly 413 below fires first via Content-Length.
+    // Content-Length check returns 413 first; body is drained before responding to preserve keep-alive.
+    // This is the hard backstop (2× cap) if Content-Length is absent or invalid.
     maxRequestBodySize: MAX_BYTES * 2,
     async fetch(req) {
       const path = new URL(req.url).pathname;
@@ -58,6 +59,8 @@ export async function createServer(opts: ServerOptions) {
           return json(400, { error: 'Could not read the upload. Please try again.' });
         }
         if (
+          payload === null ||
+          typeof payload !== 'object' ||
           typeof payload.salt !== 'string' ||
           typeof payload.iv !== 'string' ||
           typeof payload.data !== 'string'

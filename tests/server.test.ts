@@ -65,6 +65,10 @@ describe('POST /upload', () => {
     expect((await postJson('not json')).status).toBe(400);
   });
 
+  test('rejects JSON null body with 400', async () => {
+    expect((await postJson('null')).status).toBe(400);
+  });
+
   test('rejects missing fields with 400', async () => {
     expect((await postJson(JSON.stringify({ salt: 'only' }))).status).toBe(400);
   });
