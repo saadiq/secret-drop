@@ -11,11 +11,12 @@ export interface ServerOptions {
 }
 
 export async function createServer(opts: ServerOptions) {
+  const pass = opts.pass.trim().toLowerCase();
   const uploadsDir = opts.uploadsDir ?? 'uploads';
   mkdirSync(uploadsDir, { recursive: true });
 
   const verifierSalt = bytesToB64(crypto.getRandomValues(new Uint8Array(16)));
-  const verifierHash = await computeVerifier(opts.pass, verifierSalt);
+  const verifierHash = await computeVerifier(pass, verifierSalt);
   const template = await Bun.file(new URL('./public/index.html', import.meta.url)).text();
   const page = template
     .replace('__VERIFIER_SALT__', verifierSalt)

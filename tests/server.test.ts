@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from '../server.ts';
-import { decryptPayload, encryptPayload } from '../public/drop-crypto.js';
+import { computeVerifier, decryptPayload, encryptPayload } from '../public/drop-crypto.js';
 
 const PASS = 'plum-otter-band-echo';
 let server: Awaited<ReturnType<typeof createServer>>;
@@ -78,5 +78,17 @@ describe('other routes', () => {
   test('404s', async () => {
     expect((await fetch(`${base}/nope`)).status).toBe(404);
     expect((await fetch(`${base}/upload`)).status).toBe(404);
+  });
+});
+
+describe('passphrase normalization', () => {
+  test('normalizes operator passphrase before deriving the verifier', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'drop-test-'));
+    const s = await createServer({ pass: '  Plum-Otter-Band-Echo ', port: 0, uploadsDir: dir });
+    const html = await (await fetch(`http://127.0.0.1:${s.port}/`)).text();
+    const salt = html.match(/VERIFIER_SALT = '([^']+)'/)![1];
+    const hash = html.match(/VERIFIER_HASH = '([^']+)'/)![1];
+    expect(await computeVerifier('plum-otter-band-echo', salt)).toBe(hash);
+    s.stop(true);
   });
 });
