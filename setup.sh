@@ -39,15 +39,24 @@ fi
 } > "$ENV_FILE"
 echo "Saved settings to $ENV_FILE."
 
+# stderr is left visible: under pipefail a failed list aborts the script, and
+# silencing it would make that exit look like nothing happened.
 existing_id() {
-  cloudflared tunnel list 2>/dev/null | awk -v n="$TUNNEL_NAME" '$2 == n { print $1 }'
+  cloudflared tunnel list | awk -v n="$TUNNEL_NAME" '$2 == n { print $1 }'
 }
 
-TUNNEL_ID="$(existing_id)"
+if ! TUNNEL_ID="$(existing_id)"; then
+  echo "Could not list tunnels — has 'cloudflared tunnel login' been run?" >&2
+  exit 1
+fi
 if [[ -z "$TUNNEL_ID" ]]; then
   echo "Creating tunnel ${TUNNEL_NAME}…"
   cloudflared tunnel create "$TUNNEL_NAME"
   TUNNEL_ID="$(existing_id)"
+fi
+if [[ -z "$TUNNEL_ID" ]]; then
+  echo "Tunnel $TUNNEL_NAME not found after creating it — check 'cloudflared tunnel list'." >&2
+  exit 1
 fi
 echo "Tunnel: $TUNNEL_NAME ($TUNNEL_ID)"
 
