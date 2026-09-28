@@ -2,12 +2,18 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-PUBLIC_HOSTNAME="drop.saadiq.xyz"
-
-if [[ ! -f cloudflared-config.yml ]]; then
-  echo "cloudflared-config.yml missing — run ./setup.sh first." >&2
-  exit 1
-fi
+for required in .drop.env cloudflared-config.yml; do
+  if [[ ! -f "$required" ]]; then
+    echo "$required missing — run ./setup.sh first." >&2
+    exit 1
+  fi
+done
+source ./.drop.env
+# Checked before anything is launched: tripping `set -u` after the background
+# jobs start (but before the trap) would orphan a publicly reachable server.
+: "${PUBLIC_HOSTNAME:?missing from .drop.env — re-run ./setup.sh}"
+: "${OPERATOR_NAME:?missing from .drop.env — re-run ./setup.sh}"
+export OPERATOR_NAME
 
 # A second start would overwrite the pidfiles and orphan the running instance.
 for pidfile in .run/server.pid .run/tunnel.pid; do

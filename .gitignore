@@ -1,5 +1,6 @@
 uploads/
 .run/
 cloudflared-config.yml
+.drop.env
 node_modules/
 keys/
