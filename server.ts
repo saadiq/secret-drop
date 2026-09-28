@@ -1,26 +1,21 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import {
-  MAX_UPLOAD_BYTES,
-  bytesToB64,
-  computeVerifier,
-  normalizePassphrase,
-  randomSalt,
-} from './public/drop-crypto.js';
+import { MAX_UPLOAD_BYTES, isPayload } from './public/drop-crypto.js';
+import { loadKeyPair } from './keys.ts';
 
 export interface ServerOptions {
-  pass: string;
+  keysDir?: string;
   port?: number;
   uploadsDir?: string;
 }
 
-export async function createServer(opts: ServerOptions) {
-  const pass = normalizePassphrase(opts.pass);
+export async function createServer(opts: ServerOptions = {}) {
+  // Both halves are required, not just the public one: serving a page whose
+  // uploads nobody can decrypt is worse than not serving at all.
+  const { publicJwk } = await loadKeyPair(opts.keysDir);
   const uploadsDir = opts.uploadsDir ?? 'uploads';
   mkdirSync(uploadsDir, { recursive: true });
 
-  const verifierSalt = bytesToB64(randomSalt());
-  const verifierHash = await computeVerifier(pass, verifierSalt);
   const [template, cryptoModule] = await Promise.all([
     Bun.file(new URL('./public/index.html', import.meta.url)).text(),
     Bun.file(new URL('./public/drop-crypto.js', import.meta.url)).text(),
@@ -30,8 +25,7 @@ export async function createServer(opts: ServerOptions) {
     // string replacements). Its `export` keywords are legal as-is in an inline
     // module script, so no rewriting is needed.
     .replace('// __DROP_CRYPTO_INLINE__', () => cryptoModule)
-    .replace('__VERIFIER_SALT__', verifierSalt)
-    .replace('__VERIFIER_HASH__', verifierHash);
+    .replace('__PUBLIC_KEY_JWK__', () => JSON.stringify(publicJwk));
 
   return Bun.serve({
     hostname: '127.0.0.1',
@@ -59,20 +53,11 @@ export async function createServer(opts: ServerOptions) {
           }
           return json(413, { error: 'That file is too large (limit 2 MB).' });
         }
-        let payload: { salt?: unknown; iv?: unknown; data?: unknown };
+        let payload: unknown;
         try {
-          const text = await req.text();
-          payload = JSON.parse(text);
-        } catch {
-          return json(400, { error: 'Could not read the upload. Please try again.' });
-        }
-        if (
-          payload === null ||
-          typeof payload !== 'object' ||
-          typeof payload.salt !== 'string' ||
-          typeof payload.iv !== 'string' ||
-          typeof payload.data !== 'string'
-        ) {
+          payload = JSON.parse(await req.text());
+        } catch {}
+        if (!isPayload(payload)) {
           return json(400, { error: 'Could not read the upload. Please try again.' });
         }
         const now = new Date().toISOString();
@@ -96,11 +81,9 @@ function json(status: number, body: object) {
 }
 
 if (import.meta.main) {
-  const pass = process.env.PASS;
-  if (!pass) {
-    console.error('PASS is required, e.g.: PASS="plum-otter-band-echo" bun server.ts');
+  const server = await createServer().catch((err) => {
+    console.error(err.message);
     process.exit(1);
-  }
-  const server = await createServer({ pass });
+  });
   console.log(`secret-drop listening on http://${server.hostname}:${server.port}`);
 }

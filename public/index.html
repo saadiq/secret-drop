@@ -45,12 +45,9 @@
     <h1>Send your file to Saadiq</h1>
     <p>This page locks your file on your own device before it travels —
        only Saadiq can unlock it.</p>
-    <label for="code">Code from Saadiq's text message</label>
-    <input id="code" type="password" autocomplete="off" autocapitalize="none"
-           placeholder="the-four-word-code">
     <label for="file">Your file</label>
     <input id="file" type="file">
-    <p class="hint">Usually a small file ending in <b>.json</b> — the one Saadiq asked you for.</p>
+    <p class="hint">Any small file — a key file, or a text file with the keys pasted in. Whatever Saadiq asked you for.</p>
     <button id="send">Send securely</button>
     <p id="error" class="error"></p>
     <noscript><p class="error">This page needs JavaScript to lock your file
@@ -88,10 +85,10 @@
   // exactly what corporate proxies and ad-block lists tend to drop.
   // __DROP_CRYPTO_INLINE__
 
-  const VERIFIER_SALT = '__VERIFIER_SALT__';
-  const VERIFIER_HASH = '__VERIFIER_HASH__';
+  // Saadiq's public key, substituted in by server.ts. It can only lock files;
+  // the matching private key never leaves his machine.
+  const PUBLIC_KEY = __PUBLIC_KEY_JWK__;
 
-  const codeEl = document.getElementById('code');
   const fileEl = document.getElementById('file');
   const sendEl = document.getElementById('send');
   const errorEl = document.getElementById('error');
@@ -105,23 +102,17 @@
 
   sendEl.addEventListener('click', async () => {
     errorEl.textContent = '';
-    const code = normalizePassphrase(codeEl.value);
     const file = fileEl.files[0];
-    if (!code) return showError('Please enter the code from the text message.');
     if (!file) return showError('Please choose the file to send.');
     if (file.size > MAX_RAW_FILE_BYTES) {
-      return showError('That file looks too large for a key file — please double-check, or contact Saadiq.');
+      return showError('That file looks too large — this is meant for small files like keys. Please double-check, or contact Saadiq.');
     }
 
     sendEl.disabled = true;
     sendEl.textContent = 'Locking…';
     try {
-      const verifier = await computeVerifier(code, VERIFIER_SALT);
-      if (verifier !== VERIFIER_HASH) {
-        return showError("That code doesn't match — please check the text message and try again.");
-      }
       const bytes = new Uint8Array(await file.arrayBuffer());
-      const payload = await encryptPayload(code, bytes);
+      const payload = await encryptPayload(PUBLIC_KEY, bytes, file.name);
       sendEl.textContent = 'Sending…';
       const res = await fetch('/upload', {
         method: 'POST',

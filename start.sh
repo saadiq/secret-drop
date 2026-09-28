@@ -17,17 +17,6 @@ for pidfile in .run/server.pid .run/tunnel.pid; do
   fi
 done
 
-if [[ -z "${PASS:-}" ]]; then
-  PASS="$(bun -e '
-    const words = (await Bun.file("/usr/share/dict/words").text())
-      .split("\n").filter((w) => /^[a-z]{4,7}$/.test(w));
-    const pick = () =>
-      words[crypto.getRandomValues(new Uint32Array(1))[0] % words.length];
-    console.log([pick(), pick(), pick(), pick()].join("-"));
-  ')"
-fi
-export PASS
-
 mkdir -p .run uploads
 bun server.ts &
 echo $! > .run/server.pid
@@ -46,11 +35,10 @@ done
 
 echo ""
 echo "================================================="
-echo "  Link (email it):   https://$PUBLIC_HOSTNAME"
-echo "  Code (text it):    $PASS"
+echo "  Link (send it):    https://$PUBLIC_HOSTNAME"
 echo "================================================="
 echo "  Uploads land in ./uploads/ — decrypt with:"
-echo "  bun decrypt.ts uploads/<file>.enc (it will ask for the code)"
+echo "  bun decrypt.ts uploads/<file>.enc"
 echo "  Ctrl-C stops everything."
 echo ""
 
