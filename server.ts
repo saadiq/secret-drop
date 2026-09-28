@@ -7,9 +7,16 @@ export interface ServerOptions {
   keysDir?: string;
   port?: number;
   uploadsDir?: string;
+  // Who the sender is sending to, shown in the page copy. Written to
+  // .drop.env by setup.sh; start.sh exports it.
+  operatorName?: string;
 }
 
 export async function createServer(opts: ServerOptions = {}) {
+  const operatorName = (opts.operatorName ?? process.env.OPERATOR_NAME ?? '').trim();
+  if (!operatorName) {
+    throw new Error('OPERATOR_NAME is not set — run ./setup.sh, then start with ./start.sh.');
+  }
   // Both halves are required, not just the public one: serving a page whose
   // uploads nobody can decrypt is worse than not serving at all.
   const { publicJwk } = await loadKeyPair(opts.keysDir);
@@ -20,12 +27,20 @@ export async function createServer(opts: ServerOptions = {}) {
     Bun.file(new URL('./public/index.html', import.meta.url)).text(),
     Bun.file(new URL('./public/drop-crypto.js', import.meta.url)).text(),
   ]);
-  const page = template
-    // Function replacer: the module source must land verbatim ($ is special in
-    // string replacements). Its `export` keywords are legal as-is in an inline
+  const substitutions: Record<string, string> = {
+    // Lands verbatim: its `export` keywords are legal as-is in an inline
     // module script, so no rewriting is needed.
-    .replace('// __DROP_CRYPTO_INLINE__', () => cryptoModule)
-    .replace('__PUBLIC_KEY_JWK__', () => JSON.stringify(publicJwk));
+    '// __DROP_CRYPTO_INLINE__': cryptoModule,
+    __PUBLIC_KEY_JWK__: JSON.stringify(publicJwk),
+    // Markup only; scripts read the name back from <main data-operator>.
+    __OPERATOR_NAME__: Bun.escapeHTML(operatorName),
+  };
+  // One pass over the template with a function replacer: substituted text is
+  // never rescanned for tokens, and `$` in it isn't treated as a pattern.
+  const page = template.replace(
+    /\/\/ __DROP_CRYPTO_INLINE__|__PUBLIC_KEY_JWK__|__OPERATOR_NAME__/g,
+    (token) => substitutions[token],
+  );
 
   return Bun.serve({
     hostname: '127.0.0.1',

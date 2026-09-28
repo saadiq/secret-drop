@@ -10,11 +10,18 @@ let pair: KeyPair;
 let server: Awaited<ReturnType<typeof createServer>>;
 let base: string;
 let uploadsDir: string;
+// Hostile on purpose: quotes, a closing script tag, and an ampersand.
+const OPERATOR = `Jo "</script>" & Co`;
 
 beforeAll(async () => {
   uploadsDir = tempDir('drop-test-');
   [pair] = await testPairs();
-  server = await createServer({ keysDir: tempKeysDir(pair), port: 0, uploadsDir });
+  server = await createServer({
+    keysDir: tempKeysDir(pair),
+    port: 0,
+    uploadsDir,
+    operatorName: OPERATOR,
+  });
   base = `http://127.0.0.1:${server.port}`;
 });
 
@@ -51,6 +58,14 @@ describe('GET /', () => {
     expect(html).toContain('__dropReady');
     expect(html).toContain('could not finish loading');
     expect(html).toContain('<noscript>');
+  });
+
+  test('shows the operator name, HTML-escaped, and hands it to scripts via markup', () => {
+    expect(html).not.toContain('__OPERATOR_NAME__');
+    const escaped = Bun.escapeHTML(OPERATOR);
+    expect(html).toContain(`Send your file to ${escaped}</h1>`);
+    expect(html).toContain(`<main data-operator="${escaped}">`);
+    expect(html).not.toContain('</script>" & Co');
   });
 
   test('assembled inline module is syntactically valid', () => {
@@ -109,8 +124,15 @@ describe('startup', () => {
   test('refuses to run without a generated key pair', async () => {
     const empty = tempDir('drop-keys-');
     const uploads = tempDir('drop-test-');
-    await expect(createServer({ keysDir: empty, port: 0, uploadsDir: uploads })).rejects.toThrow(
-      'bun keygen.ts',
-    );
+    await expect(
+      createServer({ keysDir: empty, port: 0, uploadsDir: uploads, operatorName: 'Jo' }),
+    ).rejects.toThrow('bun keygen.ts');
+  });
+
+  test('refuses to run without an operator name', async () => {
+    const uploads = tempDir('drop-test-');
+    await expect(
+      createServer({ keysDir: tempKeysDir(pair), port: 0, uploadsDir: uploads, operatorName: ' ' }),
+    ).rejects.toThrow('./setup.sh');
   });
 });

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Send a file to Saadiq — securely</title>
+<title>Send a file to __OPERATOR_NAME__ — securely</title>
 <style>
   body {
     font-family: -apple-system, system-ui, sans-serif;
@@ -40,14 +40,14 @@
 </style>
 </head>
 <body>
-<main>
+<main data-operator="__OPERATOR_NAME__">
   <div id="form-view">
-    <h1>Send your file to Saadiq</h1>
+    <h1>Send your file to __OPERATOR_NAME__</h1>
     <p>This page locks your file on your own device before it travels —
-       only Saadiq can unlock it.</p>
+       only __OPERATOR_NAME__ can unlock it.</p>
     <label for="file">Your file</label>
     <input id="file" type="file">
-    <p class="hint">Any small file — a key file, or a text file with the keys pasted in. Whatever Saadiq asked you for.</p>
+    <p class="hint">Any small file — a key file, or a text file with the keys pasted in. Whatever __OPERATOR_NAME__ asked you for.</p>
     <button id="send">Send securely</button>
     <p id="error" class="error"></p>
     <noscript><p class="error">This page needs JavaScript to lock your file
@@ -57,7 +57,7 @@
     <div class="check">✅</div>
     <h1>Received — all set!</h1>
     <p>Your file was locked and delivered safely. You can close this page.
-       Feel free to send again if Saadiq asks for a redo.</p>
+       Feel free to send again if __OPERATOR_NAME__ asks for a redo.</p>
     <button id="again">Send another file</button>
   </div>
 </main>
@@ -74,7 +74,8 @@
         document.getElementById('error').textContent =
           'The page could not finish loading, so sending is disabled. ' +
           'Please refresh — if this happens again, try a different browser ' +
-          'or network, and let Saadiq know.';
+          'or network, and let ' +
+          document.querySelector('main').getAttribute('data-operator') + ' know.';
       }
     }, MODULE_RUN_GRACE_MS);
   });
@@ -85,9 +86,10 @@
   // exactly what corporate proxies and ad-block lists tend to drop.
   // __DROP_CRYPTO_INLINE__
 
-  // Saadiq's public key, substituted in by server.ts. It can only lock files;
-  // the matching private key never leaves his machine.
+  // The operator's public key, substituted in by server.ts. It can only lock
+  // files; the matching private key never leaves the operator's machine.
   const PUBLIC_KEY = __PUBLIC_KEY_JWK__;
+  const OPERATOR = document.querySelector('main').dataset.operator;
 
   const fileEl = document.getElementById('file');
   const sendEl = document.getElementById('send');
@@ -105,7 +107,7 @@
     const file = fileEl.files[0];
     if (!file) return showError('Please choose the file to send.');
     if (file.size > MAX_RAW_FILE_BYTES) {
-      return showError('That file looks too large — this is meant for small files like keys. Please double-check, or contact Saadiq.');
+      return showError(`That file looks too large — this is meant for small files like keys. Please double-check, or contact ${OPERATOR}.`);
     }
 
     sendEl.disabled = true;
