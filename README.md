@@ -22,25 +22,19 @@ path.
   the domain you just added. This writes `~/.cloudflared/cert.pem`
   scoped to that zone.
 
-## Make it yours
-
-The repo hard-codes its original owner in a few places. Before first
-run:
-
-1. **Hostname** — edit the constants at the top of the scripts to your
-   subdomain (any name works; `drop.` is a fine convention):
-   - `setup.sh`: `PUBLIC_HOSTNAME` (and `TUNNEL_NAME` if you like)
-   - `start.sh`: `PUBLIC_HOSTNAME`
-   - `teardown.sh`: the tunnel name in the `--full` branch, if you
-     changed `TUNNEL_NAME`
-2. **Page copy** — search `public/index.html` for `Saadiq` and put your
-   own name in the title, headings, and error messages the sender sees.
-
 ## One-time setup
 
     ./setup.sh
     # if it says the cert is scoped to the wrong zone:
     # cloudflared tunnel login  (pick the right domain), then re-run ./setup.sh
+
+It asks for two things: the public hostname (any subdomain of your
+Cloudflare domain; `drop.` is a fine convention) and your name as the
+sender will see it on the page. The answers are saved to `.drop.env`
+(git-ignored), which `start.sh` and `teardown.sh` read; re-run
+`./setup.sh` to change them — it offers the saved values as defaults.
+To skip the prompts, set `PUBLIC_HOSTNAME` and `OPERATOR_NAME` in the
+environment.
 
 This creates the named tunnel, writes `cloudflared-config.yml`, and
 routes `https://<your-subdomain>` to it. No ports opened, no DNS records
