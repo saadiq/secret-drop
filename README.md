@@ -1,10 +1,11 @@
 # secret-drop
 
 A one-day, end-to-end-encrypted file drop for receiving a sensitive file
-(e.g. a key file) from a non-technical person. They open a link, enter a
-short code you texted them, pick the file, click Send. The file is
-encrypted in their browser (PBKDF2-SHA256 600k → AES-256-GCM) before it
-travels — Cloudflare and the network only ever see ciphertext. The
+(e.g. a key file) from a non-technical person. They open a link, pick
+the file, click Send — no code to type. The file is encrypted in their
+browser with your public key (RSA-OAEP-4096 wrapping a fresh
+AES-256-GCM key) before it travels — Cloudflare and the network only
+ever see ciphertext, and only your private key can open it. The
 server binds 127.0.0.1; a named Cloudflare tunnel is the only public
 path.
 
@@ -45,15 +46,27 @@ This creates the named tunnel, writes `cloudflared-config.yml`, and
 routes `https://<your-subdomain>` to it. No ports opened, no DNS records
 to create by hand.
 
+Then generate your key pair:
+
+    bun keygen.ts
+
+It writes `keys/public.jwk.json` and `keys/private.jwk.json` (owner-only)
+next to the code; `keys/` is git-ignored. The server refuses to start
+without both, and `keygen.ts` refuses to overwrite an existing pair —
+replacing it would make any upload made with the old one unreadable.
+Back up the whole `keys/` folder if you'll need to open uploads on
+another machine — the private key is the only way to decrypt them, and
+`decrypt.ts` expects both files side by side.
+
 ## Run an exchange
 
-    ./start.sh            # prints the link and a generated 4-word code
+    ./start.sh            # prints the link
 
-1. **Email them the link**, **text them the code** (separate channels —
-   never both in one message).
-2. They open the link, enter the code, pick the file, click Send.
-3. Decrypt: `bun decrypt.ts uploads/<newest>.enc` (it will ask for the
-   code).
+1. **Send them the link.**
+2. They open it, pick the file, click Send.
+3. Decrypt: `bun decrypt.ts uploads/<newest>.enc` — it writes the file
+   next to the `.enc` under the sender's own filename
+   (`upload-<time>-<their name>`).
 4. Confirm the file is what you expect, then Ctrl-C (or
    `./teardown.sh`).
 5. Done with the domain? `./teardown.sh --full` and delete the CNAME in
@@ -62,10 +75,8 @@ to create by hand.
 ## Message templates
 
 Email: "Hi <name> — here's the secure page for sending me that key
-file: https://<your-subdomain>. It'll ask for a short code — I'm
-texting that to you separately right now. Any trouble, just call me."
-
-Text: "Code for the secure page: <four-word-code>"
+file: https://<your-subdomain>. Pick the file and click Send; it's
+locked on your computer before it leaves. Any trouble, just call me."
 
 ## Why encrypt in the browser when the page is already HTTPS?
 
@@ -78,33 +89,28 @@ exist in plaintext inside Cloudflare's infrastructure, however briefly.
 exposing your home IP with your own cert, or paid Spectrum/keyless SSL —
 are a bad trade for a one-day exchange.)
 
-TLS protects the pipe segments; the passphrase protects the payload.
+TLS protects the pipe segments; the public key protects the payload.
 Encrypting before upload also buys three things TLS never would:
 
 - **The sender's own middleboxes see nothing.** On a corporate machine,
   a TLS-inspecting proxy with an installed root CA sees "inside" HTTPS.
   It gets ciphertext too.
 - **Encrypted at rest.** Uploads land on your disk already encrypted —
-  a stray backup, a stolen laptop, or a file lingering in `uploads/`
-  exposes nothing without the code. The server process never touches
-  plaintext at all.
-- **Typos and tampering fail loudly.** The verifier embedded in the
-  page lets the sender's browser catch a wrong code before anything
-  uploads, and the AES-GCM auth tag makes a corrupted or tampered file
-  fail at decrypt time instead of silently producing garbage.
+  a stray backup or a file lingering in `uploads/` exposes nothing
+  without the private key. The server process never touches plaintext.
+- **Tampering fails loudly.** The AES-GCM auth tag makes a corrupted or
+  tampered file fail at decrypt time instead of silently producing
+  garbage.
 
-The one tradeoff: that embedded verifier would let someone who saved
-the page mount an offline guessing attack on the code. That's why
-`start.sh` generates ~60-bit 4-word passphrases — don't replace the
-generated code with a weak one.
+Anyone with the link can send you a file — the link isn't a secret and
+there's nothing to guess, since the page carries only the public key.
+What you rely on is that the page itself reaches the sender untampered,
+which is what HTTPS to Cloudflare provides.
 
 ## Notes
 
 - Every upload is timestamped in `./uploads/` — nothing is overwritten;
   the sender can retry freely while the server is up.
-- Passphrase generation reads `/usr/share/dict/words` (present on macOS
-  and most Linuxes). If yours lacks it, supply your own:
-  `PASS="four-random-dictionary-words" ./start.sh`.
 - The server listens on `127.0.0.1:8787`; if that port is taken, change
   it in `setup.sh` (`PORT`) and `server.ts` before running `./setup.sh`.
 - Tests: `bun test`
