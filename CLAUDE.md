@@ -30,5 +30,3 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Upload handling** (`server.ts`): 2 MB cap enforced first via Content-Length (413, body drained to preserve keep-alive) with `maxRequestBodySize` at 2× as the hard backstop; payloads are saved timestamped to `uploads/`, never overwritten, so the sender can retry freely.
 
 **Operational flow** (from README): `bun keygen.ts` once, then `./start.sh` and send the sender the link.
-
-Note: `docs/superpowers/plans/2026-07-22-secret-drop.md` is the original planning snapshot and predates the inlining change and the switch from a passphrase to a key pair — don't treat it as current documentation.
