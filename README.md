@@ -2,12 +2,12 @@
 
 A one-day, end-to-end-encrypted file drop for receiving a sensitive file
 (e.g. a key file) from a non-technical person. They open a link, pick
-the file, click Send — no code to type. The file is encrypted in their
-browser with your public key (RSA-OAEP-4096 wrapping a fresh
-AES-256-GCM key) before it travels — Cloudflare and the network only
-ever see ciphertext, and only your private key can open it. The
-server binds 127.0.0.1; a named Cloudflare tunnel is the only public
-path.
+the file (or type/paste text into the message box), click Send — no code
+to type. Everything is encrypted in their browser with your public key
+(RSA-OAEP-4096 wrapping a fresh AES-256-GCM key) before it travels —
+Cloudflare and the network only ever see ciphertext, and only your
+private key can open it. The server binds 127.0.0.1; a named Cloudflare
+tunnel is the only public path.
 
 ## Prerequisites
 
@@ -57,10 +57,13 @@ another machine — the private key is the only way to decrypt them, and
     ./start.sh            # prints the link
 
 1. **Send them the link.**
-2. They open it, pick the file, click Send.
+2. They open it, pick a file and/or type a message, click Send.
 3. Decrypt: `bun decrypt.ts uploads/<newest>.enc` — it writes the file
    next to the `.enc` under the sender's own filename
-   (`upload-<time>-<their name>`).
+   (`upload-<time>-<their name>`). A typed message arrives as its own
+   upload and decrypts to `upload-<time>-message.txt`; sending both a
+   file and a message makes two uploads, so decrypt each new `.enc`, not
+   just the newest.
 4. Confirm the file is what you expect, then Ctrl-C (or
    `./teardown.sh`).
 5. Done with the domain? `./teardown.sh --full` and delete the CNAME in

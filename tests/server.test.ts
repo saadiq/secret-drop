@@ -63,9 +63,18 @@ describe('GET /', () => {
   test('shows the operator name, HTML-escaped, and hands it to scripts via markup', () => {
     expect(html).not.toContain('__OPERATOR_NAME__');
     const escaped = Bun.escapeHTML(OPERATOR);
-    expect(html).toContain(`Send your file to ${escaped}</h1>`);
+    expect(html).toContain(`Send a file or message to ${escaped}</h1>`);
     expect(html).toContain(`<main data-operator="${escaped}">`);
     expect(html).not.toContain('</script>" & Co');
+  });
+
+  test('offers a message box that keeps typed secrets away from spellcheck services', () => {
+    const textarea = html.match(/<textarea id="text"[^>]*>/)![0];
+    expect(textarea).toContain('spellcheck="false"');
+    expect(textarea).toContain('autocomplete="off"');
+    expect(textarea).toContain('data-gramm="false"');
+    // A capitalized first letter silently corrupts a typed key or password.
+    expect(textarea).toContain('autocapitalize="off"');
   });
 
   test('assembled inline module is syntactically valid', () => {

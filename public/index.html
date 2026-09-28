@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Send a file to __OPERATOR_NAME__ — securely</title>
+<title>Send a file or message to __OPERATOR_NAME__ — securely</title>
 <style>
   body {
     font-family: -apple-system, system-ui, sans-serif;
@@ -20,10 +20,15 @@
   h1 { font-size: 1.3rem; margin: 0 0 8px; }
   p { color: #555; line-height: 1.5; margin: 8px 0; }
   label { display: block; font-weight: 600; margin: 20px 0 6px; }
-  input {
+  input, textarea {
     width: 100%; box-sizing: border-box; padding: 12px;
     border: 1px solid #ccc; border-radius: 10px; font-size: 1rem;
     background: #fff; color: inherit;
+  }
+  /* Keeps the shared 1rem size: iOS zooms in on any field under 16px. */
+  textarea {
+    min-height: 120px; resize: vertical;
+    font-family: ui-monospace, Menlo, monospace;
   }
   button {
     margin-top: 24px; width: 100%; padding: 14px;
@@ -42,23 +47,31 @@
 <body>
 <main data-operator="__OPERATOR_NAME__">
   <div id="form-view">
-    <h1>Send your file to __OPERATOR_NAME__</h1>
-    <p>This page locks your file on your own device before it travels —
+    <h1>Send a file or message to __OPERATOR_NAME__</h1>
+    <p>This page locks what you send on your own device before it travels —
        only __OPERATOR_NAME__ can unlock it.</p>
-    <label for="file">Your file</label>
+    <label for="file">A file</label>
     <input id="file" type="file">
-    <p class="hint">Any small file — a key file, or a text file with the keys pasted in. Whatever __OPERATOR_NAME__ asked you for.</p>
+    <p class="hint">Any small file — a key file, for example. Whatever __OPERATOR_NAME__ asked you for.</p>
+    <label for="text">…and/or type or paste a message</label>
+    <!-- spellcheck off: some browsers send typed text to a cloud spellchecker;
+         data-gramm*: Grammarly ignores spellcheck and uploads text unless opted out.
+         autocapitalize/autocorrect off: mobile keyboards would alter a typed key. -->
+    <textarea id="text" spellcheck="false" autocomplete="off" autocorrect="off"
+              autocapitalize="off" data-gramm="false" data-gramm_editor="false"
+              data-enable-grammarly="false"></textarea>
+    <p class="hint">Keys, passwords, notes — locked exactly like a file.</p>
     <button id="send">Send securely</button>
     <p id="error" class="error"></p>
-    <noscript><p class="error">This page needs JavaScript to lock your file
-      before sending. Please enable JavaScript and refresh.</p></noscript>
+    <noscript><p class="error">This page needs JavaScript to lock what you
+      send before it travels. Please enable JavaScript and refresh.</p></noscript>
   </div>
   <div id="done-view" class="success hidden">
     <div class="check">✅</div>
     <h1>Received — all set!</h1>
-    <p>Your file was locked and delivered safely. You can close this page.
+    <p>Everything was locked and delivered safely. You can close this page.
        Feel free to send again if __OPERATOR_NAME__ asks for a redo.</p>
-    <button id="again">Send another file</button>
+    <button id="again">Send something else</button>
   </div>
 </main>
 <script>
@@ -87,11 +100,12 @@
   // __DROP_CRYPTO_INLINE__
 
   // The operator's public key, substituted in by server.ts. It can only lock
-  // files; the matching private key never leaves the operator's machine.
+  // uploads; the matching private key never leaves the operator's machine.
   const PUBLIC_KEY = __PUBLIC_KEY_JWK__;
   const OPERATOR = document.querySelector('main').dataset.operator;
 
   const fileEl = document.getElementById('file');
+  const textEl = document.getElementById('text');
   const sendEl = document.getElementById('send');
   const errorEl = document.getElementById('error');
   const formView = document.getElementById('form-view');
@@ -104,27 +118,26 @@
 
   sendEl.addEventListener('click', async () => {
     errorEl.textContent = '';
-    const file = fileEl.files[0];
-    if (!file) return showError('Please choose the file to send.');
-    if (file.size > MAX_RAW_FILE_BYTES) {
-      return showError(`That file looks too large — this is meant for small files like keys. Please double-check, or contact ${OPERATOR}.`);
+    const text = textEl.value;
+    // Typed text travels as a file of its own. File encodes it as UTF-8, so
+    // .size is its byte length and one size check covers both.
+    const message = text.trim() ? new File([text], 'message.txt') : null;
+    const items = [fileEl.files[0], message].filter(Boolean);
+    if (!items.length) return showError('Please choose a file or type a message to send.');
+    const tooBig = items.find((f) => f.size > MAX_RAW_FILE_BYTES);
+    if (tooBig) {
+      return showError(tooBig === message
+        ? `That message is too long — this is meant for short things like keys. Please trim it, or contact ${OPERATOR}.`
+        : `That file looks too large — this is meant for small files like keys. Please double-check, or contact ${OPERATOR}.`);
     }
 
     sendEl.disabled = true;
-    sendEl.textContent = 'Locking…';
     try {
-      const bytes = new Uint8Array(await file.arrayBuffer());
-      const payload = await encryptPayload(PUBLIC_KEY, bytes, file.name);
-      sendEl.textContent = 'Sending…';
-      const res = await fetch('/upload', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        return showError(body.error ?? 'Something went wrong — please try again.');
-      }
+      // Nothing is cleared until everything has gone through, so a retry after
+      // a failure resends both; the server keeps every upload, so a repeat is harmless.
+      for (const f of items) if (!(await lockAndUpload(f))) return;
+      fileEl.value = '';
+      textEl.value = '';
       formView.classList.add('hidden');
       doneView.classList.remove('hidden');
     } catch {
@@ -134,6 +147,23 @@
       sendEl.textContent = 'Send securely';
     }
   });
+
+  // Returns false, with the error shown, if the server turns the upload down.
+  async function lockAndUpload(file) {
+    sendEl.textContent = 'Locking…';
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const payload = await encryptPayload(PUBLIC_KEY, bytes, file.name);
+    sendEl.textContent = 'Sending…';
+    const res = await fetch('/upload', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) return true;
+    const body = await res.json().catch(() => ({}));
+    showError(body.error ?? 'Something went wrong — please try again.');
+    return false;
+  }
 
   function showError(msg) {
     errorEl.textContent = msg;
