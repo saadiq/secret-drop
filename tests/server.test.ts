@@ -90,6 +90,17 @@ describe('POST /upload', () => {
     expect(new TextDecoder().decode(out.bytes)).toBe('{"k":"v"}');
   });
 
+  test('keeps every upload, even back-to-back ones sharing a millisecond', async () => {
+    // A file plus a message is two uploads in quick succession; on localhost
+    // most of these land in the same millisecond as the one before.
+    const count = () => readdirSync(uploadsDir).filter((f) => f.endsWith('.enc')).length;
+    const before = count();
+    for (let i = 0; i < 20; i++) {
+      expect((await postJson(JSON.stringify({ key: 'k', iv: 'i', data: `${i}` }))).status).toBe(200);
+    }
+    expect(count()).toBe(before + 20);
+  });
+
   test('rejects oversized upload with friendly 413', async () => {
     const res = await postJson(
       JSON.stringify({ key: 'a', iv: 'b', data: 'x'.repeat(3 * 1024 * 1024) }),

@@ -1,4 +1,5 @@
 import { mkdirSync } from 'node:fs';
+import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { MAX_UPLOAD_BYTES, isPayload } from './public/drop-crypto.js';
 import { loadKeyPair } from './keys.ts';
@@ -76,9 +77,8 @@ export async function createServer(opts: ServerOptions = {}) {
           return json(400, { error: 'Could not read the upload. Please try again.' });
         }
         const now = new Date().toISOString();
-        const dest = join(uploadsDir, `upload-${now.replaceAll(':', '-')}.enc`);
         const body = JSON.stringify(payload);
-        await Bun.write(dest, body);
+        const dest = await saveNew(uploadsDir, now.replaceAll(':', '-'), body);
         console.log(`[${now}] saved ${dest} (${body.length} bytes)`);
         return json(200, { ok: true });
       }
@@ -86,6 +86,22 @@ export async function createServer(opts: ServerOptions = {}) {
       return json(404, { error: 'Not found' });
     },
   });
+}
+
+// Timestamps are only millisecond-precise, and back-to-back uploads (a file
+// and a message from one click) can share one. Write exclusively and add a
+// counter on a clash, so an upload is never overwritten. `_` sorts after `.`,
+// so a suffixed name still lists after the plain one.
+async function saveNew(dir: string, stamp: string, body: string) {
+  for (let n = 0; ; n++) {
+    const dest = join(dir, `upload-${stamp}${n ? `_${n}` : ''}.enc`);
+    try {
+      await writeFile(dest, body, { flag: 'wx' });
+      return dest;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
+    }
+  }
 }
 
 function json(status: number, body: object) {
