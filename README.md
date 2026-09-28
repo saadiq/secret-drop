@@ -9,6 +9,11 @@ Cloudflare and the network only ever see ciphertext, and only your
 private key can open it. The server binds 127.0.0.1; a named Cloudflare
 tunnel is the only public path.
 
+<p align="center">
+  <img src="docs/screenshot.png" width="420"
+       alt="The drop page: pick a file and/or type a message, then Send securely">
+</p>
+
 ## Prerequisites
 
 - macOS or Linux with [Bun](https://bun.sh): `brew install oven-sh/bun/bun`
